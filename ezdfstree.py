@@ -612,7 +612,7 @@ fLog.close()
 tmpFileList = list( pantry.keys() )
 for fName in tmpFileList:
 	os.remove( fName )
- }}}
+
 print( dstRawFName )
 print( dstSrtFName )
 print( dstLogFName )
