@@ -9,6 +9,9 @@ import stat
 import urllib.request
 import errno
 import datetime
+import tempfile
+import shutil
+import socket
 # }}}
 # {{{ 'itemsPerCarton' is the number of lines in each merge file.
 # The number of cartons will be the total number of directory
@@ -167,6 +170,11 @@ logDirHash = {
 		'win32': 'C:/etc/tox'
 }
 
+drpBxDirHash = { 
+ 'linux-armv7l': '/mnt/sdcard/00',
+		'win32': 'C:/drpbx/Dropbox/tox'
+}
+
 iNodeFldWdth = { 
  'linux-armv7l': 10,
 		'win32': 12
@@ -275,13 +283,13 @@ def int_encode( num, alphabet=B56 ): # {{{
     arr.reverse()
     return nullstr.join( arr )
 # }}}
-def establishLogDir(): # {{{
+def establishDestinationDir( dirHash ): # {{{
 	# {{{ dst Directory Logic
-	if not sys.platform in logDirHash:
+	if not sys.platform in dirHash:
 		errMsg = "[BAILINGOUT]::** sys.platform == " + sys.platform + " is not supported **"
 		sys.exit( errMsg )
 
-	directoryPath = logDirHash[ sys.platform ]
+	directoryPath = dirHash[ sys.platform ]
 
 	if os.path.exists( directoryPath ):
 		alternatePath = directoryPath
@@ -346,12 +354,13 @@ def openInFile( fN ): # {{{
 	return handle
 
 # }}}
-def openNxtOutFile( nameType, stamp ): # {{{
+def nextOutFile( nameType, stamp ): # {{{
 	baseName = topNode
 	baseName = leadingDrive.sub( "\\1.slash.", baseName )
 	baseName = leadingSlash.sub( "slash.", baseName )
 	baseName = trailingSlash.sub( "", baseName )
 	baseName = anySlash.sub( ".", baseName )
+	baseName = socket.gethostname() + '.' + baseName
 
 	suffix = ".txt"
 	stringMatches = allDigits.match( nameType )
@@ -370,10 +379,15 @@ def openNxtOutFile( nameType, stamp ): # {{{
 		nameType = str( nameType ).zfill( 3 ) 
 		suffix = ".tmp"
 
-	outFName  =	establishLogDir()
+	outFName  =	establishDestinationDir( logDirHash )
 	outFName += "/"
 	outFName += baseName
-	outFName += stamp
+
+	if "ezn" == nameType:
+		outFName += ".toc."
+	else:
+		outFName += stamp
+
 	outFName += nameType
 	outFName += suffix
 	outFName  = anyPeriod.sub( ".", outFName )
@@ -382,8 +396,12 @@ def openNxtOutFile( nameType, stamp ): # {{{
 	if ".tmp" == suffix:
 		pantry[ outFName ] = 0
 
-	outFHandle = openOutFile( outFName )
-	return { "outFHandle":outFHandle, "outFName":outFName }
+	if ".ezn" == suffix:
+		outFHandle = tempfile.TemporaryFile() 
+	else:
+		outFHandle = openOutFile( outFName )
+
+	return { "outFHandle":outFHandle, "outFName":outFName, "baseName":baseName }
 # }}}
 def int_decode( string, alphabet=B56 ): # {{{
 	#
@@ -430,16 +448,17 @@ def WriteFsysElementInfo( path, fH, fN ): # {{{
 # {{{ Main descent Loop Initialization
 cartonNumber = 0
 uniqIdStamp = createStamp()
+drpBxPath = establishDestinationDir( drpBxDirHash )
 #
 # error log file is a special carton
 #
-rslt = openNxtOutFile( "log", uniqIdStamp )
+rslt = nextOutFile( "log", uniqIdStamp )
 dstLogFName = rslt[ "outFName" ]
 fLog = rslt[ "outFHandle" ]
 #
 # error log file is a special carton
 #
-rslt = openNxtOutFile( "raw", uniqIdStamp )
+rslt = nextOutFile( "raw", uniqIdStamp )
 dstRawFName = rslt[ "outFName" ]
 fRaw = rslt[ "outFHandle" ]
 
@@ -502,7 +521,7 @@ while len( dirStack ): # {{{ Main Outer Loop
 			dirStack.insert( 0, fullPath )
 
 		if itemsPerCarton == len( carton ): # {{{
-			rslt = openNxtOutFile( str( cartonNumber ), uniqIdStamp )
+			rslt = nextOutFile( str( cartonNumber ), uniqIdStamp )
 			dstFName = rslt[ "outFName" ]
 			fOut = rslt[ "outFHandle" ]
 			fLog.write( microSecTS() + '> ' + dstFName + "\n")
@@ -538,7 +557,7 @@ if len( carton ): # {{{
 	# usually a partially filled carton 
 	# will be left over. So, manage that condition.
 	#
-	rslt = openNxtOutFile( str( cartonNumber ), uniqIdStamp )
+	rslt = nextOutFile( str( cartonNumber ), uniqIdStamp )
 	dstFName = rslt[ "outFName" ]
 	fOut = rslt[ "outFHandle" ]
 	fLog.write( microSecTS() + '> ' + dstFName  + "\n")
@@ -571,7 +590,7 @@ for fName in tmpFileList:
 	#
 	mergeQ.append( bucket )
 
-rslt = openNxtOutFile( "srt", uniqIdStamp )
+rslt = nextOutFile( "srt", uniqIdStamp )
 dstSrtFName = rslt[ "outFName" ]
 fSrt = rslt[ "outFHandle" ]
 
@@ -601,7 +620,7 @@ while ctrlA != bucket.nxtLine(): # {{{
 	# is the last bucket
 	#
 	fSrt.write(  bucket.cleanCurrentLine() )
-# }}}
+	# }}}
 fLog.write( microSecTS() + '< ' + mergeQ[ 0 ].N  + "\n")
 mergeQ.pop( 0 )
 fSrt.close()
@@ -612,7 +631,13 @@ fLog.close()
 tmpFileList = list( pantry.keys() )
 for fName in tmpFileList:
 	os.remove( fName )
-# }}}
+
+rslt = nextOutFile( "ezn", uniqIdStamp )
+dstEzFName = rslt[ "outFName" ]
+shutil.copy2(dstSrtFName, dstEzFName)
+shutil.copy2(dstEzFName, drpBxPath)
+
 print( dstRawFName )
 print( dstSrtFName )
 print( dstLogFName )
+print( dstEzFName )
