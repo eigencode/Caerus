@@ -66,10 +66,10 @@ $GLOBAL:EOT								=  [string][char][int]0x04
 #
 # there still remain some operations that are easier in COM than anywhere else
 #
-$GLOBAL:fso                          =   New-Object -com scripting.filesystemobject
-$GLOBAL:wshell                       =   New-Object -com WScript.shell
-$GLOBAL:pVerifiedS					 =	 $null
-$GLOBAL:pVerifiedL					 =	 $null
+$GLOBAL:fso                          	=   New-Object -com scripting.filesystemobject
+$GLOBAL:wshell                       	=   New-Object -com WScript.shell
+$GLOBAL:pVerifiedS					 	=	$null
+$GLOBAL:pVerifiedL					 	=	$null
 #
 # More explicit global defs are required in a module than in...
 #
